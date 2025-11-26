@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinTrack - Srinath's Wallet</title>
+    <meta name="theme-color" content="#6C63FF">
+    <meta name="description" content="Track your expenses and manage your wallets with FinTrack">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Install Prompt -->
+        <div class="install-prompt" id="install-prompt">
+            <div class="install-icon">
+                <i class="fas fa-download"></i>
+            </div>
+            <div class="install-text">
+                <h4>Install FinTrack</h4>
+                <p>Add to home screen for quick access</p>
+            </div>
+            <div class="install-actions">
+                <button class="install-btn install-btn-secondary" id="install-cancel">Later</button>
+                <button class="install-btn install-btn-primary" id="install-confirm">Install</button>
+            </div>
+        </div>
+        <!-- Header with Greeting and Balance -->
+        <header>
+            <div class="greeting" id="greeting">Good Morning, Srinath!</div>
+            <div class="date" id="current-date">Monday, October 16, 2023</div>
+            <div class="balance-section">
+                <div class="balance-label">Total Balance</div>
+                <div class="balance-amount" id="total-balance">₹0.00</div>
+                <div class="balance-change positive" id="balance-change">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>No transactions yet</span>
+                </div>
+            </div>
+        </header>
+        <!-- Wallets Section -->
+        <section id="wallets-section" class="section active">
+            <div class="section-title">
+                <span>My Wallets</span>
+                <button class="add-btn-small" id="add-wallet-btn">
+                    <i class="fas fa-plus"></i>
+                    <span>Add Wallet</span>
+                </button>
+            </div>
+            <div class="wallets-grid" id="wallets-container">
+                <div class="no-wallets" id="no-wallets-message">
+                    <i class="fas fa-wallet"></i>
+                    <p>No wallets yet. Add your first wallet to get started!</p>
+                </div>
+            </div>
+            <div class="section-title">
+                <span>Recent Transactions</span>
+                <span style="font-size: 0.9rem; color: var(--primary); cursor: pointer;" id="view-all-transactions">See
+                    All</span>
+            </div>
+            <div class="transactions-list" id="recent-transactions">
+                <div class="no-wallets">
+                    <i class="fas fa-receipt"></i>
+                    <p>No transactions yet. Add your first transaction!</p>
+                </div>
+            </div>
+        </section>
+        <!-- Transactions Section -->
+        <section id="transactions-section" class="section">
+            <div class="section-title">
+                <span>All Transactions</span>
+                <button class="add-btn-small" id="add-transaction-btn">
+                    <i class="fas fa-plus"></i>
+                    <span>Add Transaction</span>
+                </button>
+            </div>
+            <div class="transactions-list" id="all-transactions">
+                <div class="no-wallets">
+                    <i class="fas fa-receipt"></i>
+                    <p>No transactions yet. Add your first transaction!</p>
+                </div>
+            </div>
+        </section>
+        <!-- Analytics Section -->
+        <section id="analytics-section" class="section">
+            <div class="section-title">
+                <span>Spending Analytics</span>
+                <i class="fas fa-ellipsis-h"></i>
+            </div>
+            <div class="analytics-container">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">Spending by Category</div>
+                        <div class="chart-actions">
+                            <select id="analytics-period">
+                                <option>This Month</option>
+                                <option>Last Month</option>
+                                <option>Last 3 Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-placeholder" id="category-chart">
+                        <i class="fas fa-chart-pie" style="font-size: 2rem; margin-right: 10px;"></i>
+                        No data to display
+                    </div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-title">Total Spending</div>
+                        <div class="stat-value" id="total-spending">₹0</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>No data</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Total Income</div>
+                        <div class="stat-value" id="total-income">₹0</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>No data</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Most Spent Category</div>
+                        <div class="stat-value" id="top-category">-</div>
+                        <div class="stat-title" id="top-category-amount">₹0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Savings Rate</div>
+                        <div class="stat-value" id="savings-rate">0%</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>No data</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container" style="margin-top: 20px;">
+                    <div class="chart-header">
+                        <div class="chart-title">Wallet Distribution</div>
+                    </div>
+                    <div class="chart-placeholder" id="wallet-chart">
+                        <i class="fas fa-chart-bar" style="font-size: 2rem; margin-right: 10px;"></i>
+                        No data to display
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Add Transaction Button -->
+        <div class="add-btn" id="main-add-btn">
+            <i class="fas fa-plus"></i>
+        </div>
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-item active" data-section="wallets-section">
+                <i class="fas fa-wallet"></i>
+                <span>Wallets</span>
+            </div>
+            <div class="nav-item" data-section="transactions-section">
+                <i class="fas fa-receipt"></i>
+                <span>Transactions</span>
+            </div>
+            <div class="nav-item" data-section="analytics-section">
+                <i class="fas fa-chart-bar"></i>
+                <span>Analytics</span>
+            </div>
+        </div>
+        <!-- Add Wallet Modal -->
+        <div class="modal" id="wallet-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title" id="wallet-modal-title">Add New Wallet</div>
+                    <button class="modal-close" id="close-wallet-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="wallet-form">
+                        <input type="hidden" id="wallet-id">
+                        <div class="form-group">
+                            <label class="form-label" for="wallet-name">Wallet Name</label>
+                            <input type="text" class="form-control" id="wallet-name"
+                                placeholder="e.g., Main Bank Account" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="wallet-type">Wallet Type</label>
+                            <select class="form-select" id="wallet-type" required>
+                                <option value="cash">Cash</option>
+                                <option value="bank">Bank Account</option>
+                                <option value="card">Credit Card</option>
+                                <option value="digital">Digital Wallet</option>
+                                <option value="savings">Savings</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="initial-balance">Initial Balance</label>
+                            <input type="number" class="form-control" id="initial-balance" placeholder="0.00"
+                                step="0.01" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-wallet">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Wallet</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Add Transaction Modal -->
+        <div class="modal" id="transaction-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title" id="transaction-modal-title">Add New Transaction</div>
+                    <button class="modal-close" id="close-transaction-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="transaction-form">
+                        <input type="hidden" id="transaction-id">
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-type">Transaction Type</label>
+                            <select class="form-select" id="transaction-type" required>
+                                <option value="expense">Expense</option>
+                                <option value="income">Income</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-amount">Amount</label>
+                            <input type="number" class="form-control" id="transaction-amount" placeholder="0.00"
+                                step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-wallet">Wallet</label>
+                            <select class="form-select" id="transaction-wallet" required>
+                                <option value="">Select a wallet</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-category">Category</label>
+                            <div class="categories-grid" id="transaction-categories">
+                                <div class="category-item" data-category="food">
+                                    <div class="category-icon"><i class="fas fa-utensils"></i></div>
+                                    <div>Food</div>
+                                </div>
+                                <div class="category-item" data-category="shopping">
+                                    <div class="category-icon"><i class="fas fa-shopping-bag"></i></div>
+                                    <div>Shopping</div>
+                                </div>
+                                <div class="category-item" data-category="transport">
+                                    <div class="category-icon"><i class="fas fa-bus"></i></div>
+                                    <div>Transport</div>
+                                </div>
+                                <div class="category-item" data-category="entertainment">
+                                    <div class="category-icon"><i class="fas fa-film"></i></div>
+                                    <div>Entertainment</div>
+                                </div>
+                                <div class="category-item" data-category="bills">
+                                    <div class="category-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                                    <div>Bills</div>
+                                </div>
+                                <div class="category-item" data-category="health">
+                                    <div class="category-icon"><i class="fas fa-heartbeat"></i></div>
+                                    <div>Health</div>
+                                </div>
+                                <div class="category-item" data-category="smoke-drink">
+                                    <div class="category-icon"><i class="fas fa-smoking"></i></div>
+                                    <div>Smoke/Drink</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="transaction-category" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-date">Date</label>
+                            <input type="date" class="form-control" id="transaction-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-time">Time</label>
+                            <input type="time" class="form-control" id="transaction-time" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="transaction-comment">Comment (Optional)</label>
+                            <textarea class="form-control" id="transaction-comment" rows="2"
+                                placeholder="Add a note about this transaction"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-transaction">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Transaction</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Delete Confirmation Modal -->
+        <div class="modal" id="delete-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">Confirm Deletion</div>
+                    <button class="modal-close" id="close-delete-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="delete-message">Are you sure you want to delete this item?</p>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-delete">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirm-delete">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
