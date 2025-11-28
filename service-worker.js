@@ -1,6 +1,5 @@
-const CACHE_NAME = "fintrack-cache-v1";
+const CACHE_NAME = "fintrack-cache-v2";
 
-// List of files to cache (static app shell)
 const FILES_TO_CACHE = [
     "./",
     "./index.html",

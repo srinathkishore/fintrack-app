@@ -1,13 +1,13 @@
-// Modern Wallet App for Srinath Kishore
-// Data storage and initialization
 let wallets = JSON.parse(localStorage.getItem('wallets')) || [];
 let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+let budgets = JSON.parse(localStorage.getItem('budgets')) || [];
+let userName = localStorage.getItem('userName') || '';
 let editingWalletId = null;
 let editingTransactionId = null;
+let editingBudgetId = null;
 let deleteType = null;
 let deleteId = null;
 
-// DOM Elements
 const walletsContainer = document.getElementById('wallets-container');
 const noWalletsMessage = document.getElementById('no-wallets-message');
 const recentTransactions = document.getElementById('recent-transactions');
@@ -15,26 +15,26 @@ const allTransactions = document.getElementById('all-transactions');
 const totalBalance = document.getElementById('total-balance');
 const balanceChange = document.getElementById('balance-change');
 
-// Modals
+const welcomeModal = document.getElementById('welcome-modal');
 const walletModal = document.getElementById('wallet-modal');
 const transactionModal = document.getElementById('transaction-modal');
+const budgetModal = document.getElementById('budget-modal');
+const settingsModal = document.getElementById('settings-modal');
 const deleteModal = document.getElementById('delete-modal');
 
-// Forms
 const walletForm = document.getElementById('wallet-form');
 const transactionForm = document.getElementById('transaction-form');
+const budgetForm = document.getElementById('budget-form');
+const welcomeForm = document.getElementById('welcome-form');
 
-// Buttons
 const addWalletBtn = document.getElementById('add-wallet-btn');
 const addTransactionBtn = document.getElementById('add-transaction-btn');
+const addBudgetBtn = document.getElementById('add-budget-btn');
 const mainAddBtn = document.getElementById('main-add-btn');
+const settingsBtn = document.getElementById('settings-btn');
 
-// =============================================
-// PWA SERVICE WORKER REGISTRATION
-// =============================================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-        console.log('Registering Service Worker...');
         navigator.serviceWorker.register('./service-worker.js')
             .then(function (registration) {
                 console.log('Service Worker registered successfully with scope:', registration.scope);
@@ -47,109 +47,96 @@ if ('serviceWorker' in navigator) {
     console.warn('Service Workers not supported');
 }
 
-// =============================================
-// PWA INSTALL PROMPT HANDLING
-// =============================================
 let deferredPrompt;
 const installPrompt = document.getElementById('install-prompt');
 const installCancel = document.getElementById('install-cancel');
 const installConfirm = document.getElementById('install-confirm');
 
 window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('beforeinstallprompt fired!');
-    // Prevent the mini-infobar from appearing on mobile
     e.preventDefault();
-    // Stash the event so it can be triggered later
     deferredPrompt = e;
-    // Show the install prompt
     setTimeout(() => {
         installPrompt.classList.add('active');
     }, 3000);
 });
 
 installCancel.addEventListener('click', () => {
-    console.log('Install prompt dismissed');
     installPrompt.classList.remove('active');
 });
 
 installConfirm.addEventListener('click', async () => {
     if (deferredPrompt) {
-        console.log('Triggering install prompt...');
-        // Show the install prompt
         deferredPrompt.prompt();
-        // Wait for the user to respond to the prompt
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
             console.log('User accepted the install prompt');
         } else {
             console.log('User dismissed the install prompt');
         }
-        // Clear the saved prompt since it can't be used again
         deferredPrompt = null;
-        // Hide the install prompt
         installPrompt.classList.remove('active');
     }
 });
 
 window.addEventListener('appinstalled', () => {
-    console.log('App installed successfully!');
-    // Hide the install prompt
     installPrompt.classList.remove('active');
-    // Clear the deferredPrompt for safety
     deferredPrompt = null;
 });
 
-// =============================================
-// UTILITY FUNCTIONS
-// =============================================
+function sanitizeInput(input) {
+    if (typeof input !== 'string') return input;
+    return input.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+}
 
-/**
- * Format currency to Indian Rupees with proper formatting
- * @param {number} amount - The amount to format
- * @returns {string} Formatted currency string
- */
+function validateTransaction(transaction) {
+    const errors = [];
+    if (transaction.amount <= 0) errors.push("Amount must be positive");
+    if (!transaction.walletId) errors.push("Wallet is required");
+    if (!transaction.category) errors.push("Category is required");
+    if (new Date(transaction.date) > new Date()) errors.push("Future dates not allowed");
+    return errors;
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.getElementById('notification-container').appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
 function formatCurrency(amount) {
     return '₹' + amount.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
-/**
- * Format time to HH:MM format
- * @param {Date} date - Date object to extract time from
- * @returns {string} Formatted time string
- */
 function formatTime(date) {
     return date.toTimeString().slice(0, 5);
 }
 
-/**
- * Update greeting based on time of day
- */
 function updateGreeting() {
+    if (!userName) return;
+
     const hour = new Date().getHours();
     const greetingElement = document.getElementById('greeting');
-    let greeting = "Good Morning, Srinath!";
+    let greeting = "Good Morning";
     if (hour >= 12 && hour < 18) {
-        greeting = "Good Afternoon, Srinath!";
+        greeting = "Good Afternoon";
     } else if (hour >= 18) {
-        greeting = "Good Evening, Srinath!";
+        greeting = "Good Evening";
     }
-    greetingElement.textContent = greeting;
+    greetingElement.textContent = `${greeting}, ${userName}!`;
 }
 
-/**
- * Update current date display
- */
 function updateDate() {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     const currentDate = new Date().toLocaleDateString('en-US', options);
     document.getElementById('current-date').textContent = currentDate;
 }
 
-/**
- * Get wallet icon based on wallet type
- * @param {string} type - Wallet type
- * @returns {string} FontAwesome icon name
- */
 function getWalletIcon(type) {
     const icons = {
         cash: 'money-bill-wave',
@@ -161,11 +148,6 @@ function getWalletIcon(type) {
     return icons[type] || 'wallet';
 }
 
-/**
- * Get category icon based on category
- * @param {string} category - Transaction category
- * @returns {string} FontAwesome icon name
- */
 function getCategoryIcon(category) {
     const icons = {
         food: 'utensils',
@@ -179,11 +161,6 @@ function getCategoryIcon(category) {
     return icons[category] || 'receipt';
 }
 
-/**
- * Get category display name
- * @param {string} category - Transaction category
- * @returns {string} Display name for category
- */
 function getCategoryName(category) {
     const names = {
         food: 'Food & Dining',
@@ -197,21 +174,11 @@ function getCategoryName(category) {
     return names[category] || 'Other';
 }
 
-// =============================================
-// WALLET MANAGEMENT FUNCTIONS
-// =============================================
-
-/**
- * Calculate current wallet balance from initial balance and transactions
- * @param {string} walletId - ID of the wallet
- * @returns {number} Current balance
- */
 function calculateWalletBalance(walletId) {
     const walletTransactions = transactions.filter(t => t.walletId === walletId);
     const wallet = wallets.find(w => w.id === walletId);
     if (!wallet) return 0;
 
-    // Start with initial balance and add/subtract transactions
     let balance = wallet.initialBalance || 0;
     walletTransactions.forEach(transaction => {
         if (transaction.type === 'income') {
@@ -223,11 +190,6 @@ function calculateWalletBalance(walletId) {
     return balance;
 }
 
-/**
- * Calculate wallet change for current month
- * @param {string} walletId - ID of the wallet
- * @returns {number} Net change for current month
- */
 function calculateWalletChange(walletId) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -245,9 +207,6 @@ function calculateWalletChange(walletId) {
     }, 0);
 }
 
-/**
- * Render all wallets in the wallets grid
- */
 function renderWallets() {
     if (wallets.length === 0) {
         noWalletsMessage.style.display = 'block';
@@ -281,7 +240,7 @@ function renderWallets() {
                         <i class="fas fa-${getWalletIcon(wallet.type)}"></i>
                     </div>
                 </div>
-                <div class="wallet-name">${wallet.name}</div>
+                <div class="wallet-name">${sanitizeInput(wallet.name)}</div>
                 <div class="wallet-balance">${formatCurrency(currentBalance)}</div>
                 <div class="wallet-change ${changeClass}">
                     <i class="fas ${changeIcon}"></i>
@@ -293,7 +252,6 @@ function renderWallets() {
 
     walletsContainer.innerHTML = walletsHTML;
 
-    // Add event listeners to wallet action buttons
     document.querySelectorAll('.edit-wallet').forEach(btn => {
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -310,18 +268,13 @@ function renderWallets() {
         });
     });
 
-    // Update total balance
     updateTotalBalance();
 }
 
-/**
- * Update total balance display
- */
 function updateTotalBalance() {
     const total = wallets.reduce((sum, wallet) => sum + calculateWalletBalance(wallet.id), 0);
     totalBalance.textContent = formatCurrency(total);
 
-    // Calculate change from last month
     const now = new Date();
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthTransactions = transactions.filter(t => new Date(t.date) >= lastMonth && new Date(t.date) < new Date(now.getFullYear(), now.getMonth(), 1));
@@ -369,22 +322,12 @@ function updateTotalBalance() {
     }
 }
 
-// =============================================
-// TRANSACTION MANAGEMENT FUNCTIONS
-// =============================================
-
-/**
- * Render transactions in the specified container
- * @param {HTMLElement} container - DOM element to render transactions in
- * @param {Array} transactionsList - List of transactions to render
- * @param {boolean} isRecent - Whether this is the recent transactions list
- */
 function renderTransactionList(container, transactionsList, isRecent) {
     if (transactionsList.length === 0) {
         container.innerHTML = `
             <div class="no-wallets">
                 <i class="fas fa-receipt"></i>
-                <p>No transactions yet. Add your first transaction!</p>
+                <p>No transactions found.</p>
             </div>
         `;
         return;
@@ -393,7 +336,7 @@ function renderTransactionList(container, transactionsList, isRecent) {
     let transactionsHTML = '';
     transactionsList.forEach(transaction => {
         const wallet = wallets.find(w => w.id === transaction.walletId);
-        const walletName = wallet ? wallet.name : 'Unknown Wallet';
+        const walletName = wallet ? sanitizeInput(wallet.name) : 'Unknown Wallet';
         const amountClass = transaction.type === 'income' ? 'income' : 'expense';
         const amountSign = transaction.type === 'income' ? '+' : '-';
         const date = new Date(transaction.date);
@@ -406,7 +349,7 @@ function renderTransactionList(container, transactionsList, isRecent) {
                         <i class="fas fa-${getCategoryIcon(transaction.category)}"></i>
                     </div>
                     <div class="transaction-details">
-                        <h4>${transaction.comment || getCategoryName(transaction.category)}</h4>
+                        <h4>${sanitizeInput(transaction.comment) || getCategoryName(transaction.category)}</h4>
                         <p>${walletName} • ${formattedDate}</p>
                         <div class="transaction-time">${transaction.time}</div>
                     </div>
@@ -430,7 +373,6 @@ function renderTransactionList(container, transactionsList, isRecent) {
 
     container.innerHTML = transactionsHTML;
 
-    // Add event listeners to transaction action buttons (for all transactions only)
     if (!isRecent) {
         document.querySelectorAll('.edit-transaction').forEach(btn => {
             btn.addEventListener('click', function () {
@@ -448,55 +390,87 @@ function renderTransactionList(container, transactionsList, isRecent) {
     }
 }
 
-/**
- * Render all transactions (recent and all transactions)
- */
 function renderTransactions() {
-    // Sort transactions by date and time (newest first)
-    const sortedTransactions = [...transactions].sort((a, b) => {
+    const searchQuery = document.getElementById('search-transactions').value.toLowerCase();
+    const filterType = document.getElementById('filter-type').value;
+    const filterCategory = document.getElementById('filter-category').value;
+    const filterWallet = document.getElementById('filter-wallet').value;
+
+    let filteredTransactions = [...transactions];
+
+    if (searchQuery) {
+        filteredTransactions = filteredTransactions.filter(t =>
+            t.comment?.toLowerCase().includes(searchQuery) ||
+            getCategoryName(t.category).toLowerCase().includes(searchQuery) ||
+            t.amount.toString().includes(searchQuery)
+        );
+    }
+
+    if (filterType) {
+        filteredTransactions = filteredTransactions.filter(t => t.type === filterType);
+    }
+
+    if (filterCategory) {
+        filteredTransactions = filteredTransactions.filter(t => t.category === filterCategory);
+    }
+
+    if (filterWallet) {
+        filteredTransactions = filteredTransactions.filter(t => t.walletId === filterWallet);
+    }
+
+    const sortedTransactions = filteredTransactions.sort((a, b) => {
         const dateA = new Date(a.date + ' ' + a.time);
         const dateB = new Date(b.date + ' ' + b.time);
         return dateB - dateA;
     });
 
-    // Recent transactions (last 5)
     const recent = sortedTransactions.slice(0, 5);
     renderTransactionList(recentTransactions, recent, true);
-
-    // All transactions
     renderTransactionList(allTransactions, sortedTransactions, false);
 
-    // Update wallet dropdown in transaction form
     updateWalletDropdown();
+    updateFilterDropdowns();
 }
 
-/**
- * Update wallet dropdown in transaction form
- */
 function updateWalletDropdown() {
     const walletSelect = document.getElementById('transaction-wallet');
     walletSelect.innerHTML = '<option value="">Select a wallet</option>';
     wallets.forEach(wallet => {
         const option = document.createElement('option');
         option.value = wallet.id;
-        option.textContent = wallet.name;
+        option.textContent = sanitizeInput(wallet.name);
         walletSelect.appendChild(option);
     });
 }
 
-// =============================================
-// ANALYTICS FUNCTIONS
-// =============================================
+function updateFilterDropdowns() {
+    const categorySelect = document.getElementById('filter-category');
+    const walletSelect = document.getElementById('filter-wallet');
 
-/**
- * Update analytics and charts with current data
- */
+    categorySelect.innerHTML = '<option value="">All Categories</option>';
+    walletSelect.innerHTML = '<option value="">All Wallets</option>';
+
+    const categories = [...new Set(transactions.map(t => t.category))];
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = getCategoryName(category);
+        categorySelect.appendChild(option);
+    });
+
+    wallets.forEach(wallet => {
+        const option = document.createElement('option');
+        option.value = wallet.id;
+        option.textContent = sanitizeInput(wallet.name);
+        walletSelect.appendChild(option);
+    });
+}
+
 function updateAnalytics() {
     if (transactions.length === 0) {
         return;
     }
 
-    // Calculate totals
     const totalSpending = transactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
@@ -505,15 +479,12 @@ function updateAnalytics() {
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
-    // Update UI
     document.getElementById('total-spending').textContent = formatCurrency(totalSpending);
     document.getElementById('total-income').textContent = formatCurrency(totalIncome);
 
-    // Calculate savings rate
     const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpending) / totalIncome * 100) : 0;
     document.getElementById('savings-rate').textContent = `${savingsRate.toFixed(1)}%`;
 
-    // Find top spending category
     const categorySpending = {};
     transactions
         .filter(t => t.type === 'expense')
@@ -533,7 +504,6 @@ function updateAnalytics() {
     document.getElementById('top-category').textContent = topCategory;
     document.getElementById('top-category-amount').textContent = formatCurrency(topCategoryAmount);
 
-    // Update chart placeholders with some basic info
     if (totalSpending > 0) {
         document.getElementById('category-chart').innerHTML = `
             <div style="text-align: center;">
@@ -555,13 +525,97 @@ function updateAnalytics() {
     }
 }
 
-// =============================================
-// MODAL MANAGEMENT FUNCTIONS
-// =============================================
+function renderBudgets() {
+    const budgetsContainer = document.getElementById('budgets-container');
 
-/**
- * Open add wallet modal
- */
+    if (budgets.length === 0) {
+        budgetsContainer.innerHTML = `
+            <div class="no-wallets">
+                <i class="fas fa-chart-line"></i>
+                <p>No budgets set. Create your first budget to track spending!</p>
+            </div>
+        `;
+        return;
+    }
+
+    let budgetsHTML = '';
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    budgets.forEach(budget => {
+        const spent = transactions
+            .filter(t => t.type === 'expense' &&
+                t.category === budget.category &&
+                new Date(t.date).getMonth() === currentMonth &&
+                new Date(t.date).getFullYear() === currentYear)
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        const percentage = (spent / budget.amount) * 100;
+        const statusClass = percentage >= 100 ? 'over-budget' : percentage >= 80 ? 'near-budget' : 'under-budget';
+
+        budgetsHTML += `
+            <div class="budget-card" data-budget-id="${budget.id}">
+                <div class="budget-header">
+                    <div class="budget-category">${getCategoryName(budget.category)}</div>
+                    <div class="budget-actions">
+                        <div class="budget-action-btn edit-budget" title="Edit Budget">
+                            <i class="fas fa-edit"></i>
+                        </div>
+                        <div class="budget-action-btn delete-budget" title="Delete Budget">
+                            <i class="fas fa-trash"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="budget-amount">${formatCurrency(budget.amount)} / ${budget.period}</div>
+                <div class="budget-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill ${statusClass}" style="width: ${Math.min(percentage, 100)}%"></div>
+                    </div>
+                    <div class="progress-text">${formatCurrency(spent)} spent (${percentage.toFixed(1)}%)</div>
+                </div>
+            </div>
+        `;
+    });
+
+    budgetsContainer.innerHTML = budgetsHTML;
+
+    document.querySelectorAll('.edit-budget').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const budgetId = this.closest('.budget-card').getAttribute('data-budget-id');
+            openEditBudgetModal(budgetId);
+        });
+    });
+
+    document.querySelectorAll('.delete-budget').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const budgetId = this.closest('.budget-card').getAttribute('data-budget-id');
+            openDeleteModal('budget', budgetId);
+        });
+    });
+}
+
+function checkBudgetAlerts() {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    budgets.forEach(budget => {
+        const spent = transactions
+            .filter(t => t.type === 'expense' &&
+                t.category === budget.category &&
+                new Date(t.date).getMonth() === currentMonth &&
+                new Date(t.date).getFullYear() === currentYear)
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        if (spent > budget.amount * 0.8 && spent <= budget.amount) {
+            showNotification(`You've spent ${(spent / budget.amount * 100).toFixed(0)}% of your ${getCategoryName(budget.category)} budget!`, 'warning');
+        } else if (spent > budget.amount) {
+            showNotification(`You've exceeded your ${getCategoryName(budget.category)} budget by ${formatCurrency(spent - budget.amount)}!`, 'error');
+        }
+    });
+}
+
 function openAddWalletModal() {
     editingWalletId = null;
     document.getElementById('wallet-modal-title').textContent = 'Add New Wallet';
@@ -569,10 +623,6 @@ function openAddWalletModal() {
     walletModal.classList.add('active');
 }
 
-/**
- * Open edit wallet modal
- * @param {string} walletId - ID of wallet to edit
- */
 function openEditWalletModal(walletId) {
     editingWalletId = walletId;
     const wallet = wallets.find(w => w.id === walletId);
@@ -586,27 +636,24 @@ function openEditWalletModal(walletId) {
     }
 }
 
-/**
- * Close wallet modal
- */
 function closeWalletModal() {
     walletModal.classList.remove('active');
 }
 
-/**
- * Handle wallet form submission
- * @param {Event} e - Form submission event
- */
 function handleWalletFormSubmit(e) {
     e.preventDefault();
 
     const walletId = document.getElementById('wallet-id').value;
-    const name = document.getElementById('wallet-name').value;
+    const name = sanitizeInput(document.getElementById('wallet-name').value);
     const type = document.getElementById('wallet-type').value;
     const initialBalance = parseFloat(document.getElementById('initial-balance').value);
 
+    if (initialBalance < 0) {
+        showNotification('Initial balance cannot be negative', 'error');
+        return;
+    }
+
     if (editingWalletId) {
-        // Update existing wallet - preserve initial balance
         const walletIndex = wallets.findIndex(w => w.id === editingWalletId);
         if (walletIndex !== -1) {
             wallets[walletIndex].name = name;
@@ -614,7 +661,6 @@ function handleWalletFormSubmit(e) {
             wallets[walletIndex].initialBalance = initialBalance;
         }
     } else {
-        // Add new wallet
         const newWallet = {
             id: Date.now().toString(),
             name,
@@ -628,14 +674,12 @@ function handleWalletFormSubmit(e) {
     renderWallets();
     updateWalletDropdown();
     closeWalletModal();
+    showNotification('Wallet saved successfully!', 'success');
 }
 
-/**
- * Open add transaction modal
- */
 function openAddTransactionModal() {
     if (wallets.length === 0) {
-        alert('Please add a wallet first before creating transactions.');
+        showNotification('Please add a wallet first before creating transactions.', 'error');
         return;
     }
 
@@ -645,17 +689,12 @@ function openAddTransactionModal() {
     document.getElementById('transaction-date').valueAsDate = new Date();
     document.getElementById('transaction-time').value = formatTime(new Date());
 
-    // Clear category selection
     document.querySelectorAll('.category-item').forEach(item => item.classList.remove('selected'));
     document.getElementById('transaction-category').value = '';
 
     transactionModal.classList.add('active');
 }
 
-/**
- * Open edit transaction modal
- * @param {string} transactionId - ID of transaction to edit
- */
 function openEditTransactionModal(transactionId) {
     editingTransactionId = transactionId;
     const transaction = transactions.find(t => t.id === transactionId);
@@ -669,7 +708,6 @@ function openEditTransactionModal(transactionId) {
         document.getElementById('transaction-time').value = transaction.time;
         document.getElementById('transaction-comment').value = transaction.comment || '';
 
-        // Select category
         document.querySelectorAll('.category-item').forEach(item => {
             if (item.getAttribute('data-category') === transaction.category) {
                 item.classList.add('selected');
@@ -683,22 +721,15 @@ function openEditTransactionModal(transactionId) {
     }
 }
 
-/**
- * Close transaction modal
- */
 function closeTransactionModal() {
     transactionModal.classList.remove('active');
 }
 
-/**
- * Handle transaction form submission
- * @param {Event} e - Form submission event
- */
 function handleTransactionFormSubmit(e) {
     e.preventDefault();
 
     if (!document.getElementById('transaction-category').value) {
-        alert('Please select a category');
+        showNotification('Please select a category', 'error');
         return;
     }
 
@@ -709,17 +740,22 @@ function handleTransactionFormSubmit(e) {
     const category = document.getElementById('transaction-category').value;
     const date = document.getElementById('transaction-date').value;
     const time = document.getElementById('transaction-time').value;
-    const comment = document.getElementById('transaction-comment').value;
+    const comment = sanitizeInput(document.getElementById('transaction-comment').value);
 
-    // Find the wallet
     const wallet = wallets.find(w => w.id === walletId);
     if (!wallet) {
-        alert('Selected wallet not found');
+        showNotification('Selected wallet not found', 'error');
+        return;
+    }
+
+    const transaction = { type, amount, walletId, category, date, time, comment };
+    const errors = validateTransaction(transaction);
+    if (errors.length > 0) {
+        showNotification(errors[0], 'error');
         return;
     }
 
     if (editingTransactionId) {
-        // Update existing transaction - no need to modify wallet balance
         const transactionIndex = transactions.findIndex(t => t.id === editingTransactionId);
         if (transactionIndex !== -1) {
             transactions[transactionIndex] = {
@@ -734,7 +770,6 @@ function handleTransactionFormSubmit(e) {
             };
         }
     } else {
-        // Add new transaction - no need to modify wallet balance
         const newTransaction = {
             id: Date.now().toString(),
             type,
@@ -749,17 +784,93 @@ function handleTransactionFormSubmit(e) {
     }
 
     saveData();
-    renderWallets(); // This will recalculate balances based on transactions
+    renderWallets();
     renderTransactions();
     updateAnalytics();
+    checkBudgetAlerts();
     closeTransactionModal();
+    showNotification('Transaction saved successfully!', 'success');
 }
 
-/**
- * Open delete confirmation modal
- * @param {string} type - Type of item to delete ('wallet' or 'transaction')
- * @param {string} id - ID of item to delete
- */
+function openAddBudgetModal() {
+    editingBudgetId = null;
+    document.getElementById('budget-modal-title').textContent = 'Add New Budget';
+    document.getElementById('budget-form').reset();
+    budgetModal.classList.add('active');
+}
+
+function openEditBudgetModal(budgetId) {
+    editingBudgetId = budgetId;
+    const budget = budgets.find(b => b.id === budgetId);
+    if (budget) {
+        document.getElementById('budget-modal-title').textContent = 'Edit Budget';
+        document.getElementById('budget-id').value = budget.id;
+        document.getElementById('budget-category').value = budget.category;
+        document.getElementById('budget-amount').value = budget.amount;
+        document.getElementById('budget-period').value = budget.period;
+        budgetModal.classList.add('active');
+    }
+}
+
+function closeBudgetModal() {
+    budgetModal.classList.remove('active');
+}
+
+function handleBudgetFormSubmit(e) {
+    e.preventDefault();
+
+    const budgetId = document.getElementById('budget-id').value;
+    const category = document.getElementById('budget-category').value;
+    const amount = parseFloat(document.getElementById('budget-amount').value);
+    const period = document.getElementById('budget-period').value;
+
+    if (amount <= 0) {
+        showNotification('Budget amount must be positive', 'error');
+        return;
+    }
+
+    const existingBudget = budgets.find(b => b.category === category && b.id !== budgetId);
+    if (existingBudget) {
+        showNotification('Budget for this category already exists', 'error');
+        return;
+    }
+
+    if (editingBudgetId) {
+        const budgetIndex = budgets.findIndex(b => b.id === editingBudgetId);
+        if (budgetIndex !== -1) {
+            budgets[budgetIndex] = {
+                ...budgets[budgetIndex],
+                category,
+                amount,
+                period
+            };
+        }
+    } else {
+        const newBudget = {
+            id: Date.now().toString(),
+            category,
+            amount,
+            period,
+            createdAt: new Date().toISOString()
+        };
+        budgets.push(newBudget);
+    }
+
+    saveData();
+    renderBudgets();
+    closeBudgetModal();
+    showNotification('Budget saved successfully!', 'success');
+}
+
+function openSettingsModal() {
+    document.getElementById('settings-user-name').value = userName;
+    settingsModal.classList.add('active');
+}
+
+function closeSettingsModal() {
+    settingsModal.classList.remove('active');
+}
+
 function openDeleteModal(type, id) {
     deleteType = type;
     deleteId = id;
@@ -770,98 +881,166 @@ function openDeleteModal(type, id) {
         message = `Are you sure you want to delete the wallet "${wallet.name}"? This will also delete all transactions associated with this wallet.`;
     } else if (type === 'transaction') {
         message = 'Are you sure you want to delete this transaction?';
+    } else if (type === 'budget') {
+        const budget = budgets.find(b => b.id === id);
+        message = `Are you sure you want to delete the budget for ${getCategoryName(budget.category)}?`;
     }
 
     document.getElementById('delete-message').textContent = message;
     deleteModal.classList.add('active');
 }
 
-/**
- * Close delete confirmation modal
- */
 function closeDeleteModal() {
     deleteModal.classList.remove('active');
 }
 
-/**
- * Confirm and execute deletion
- */
 function confirmDelete() {
     if (deleteType === 'wallet') {
-        // Delete wallet and its transactions
         wallets = wallets.filter(w => w.id !== deleteId);
         transactions = transactions.filter(t => t.walletId !== deleteId);
     } else if (deleteType === 'transaction') {
-        // Delete transaction - no need to modify wallet balance
         transactions = transactions.filter(t => t.id !== deleteId);
+    } else if (deleteType === 'budget') {
+        budgets = budgets.filter(b => b.id !== deleteId);
     }
 
     saveData();
-    renderWallets(); // This will recalculate all balances
+    renderWallets();
     renderTransactions();
+    renderBudgets();
     updateAnalytics();
     closeDeleteModal();
+    showNotification('Item deleted successfully!', 'success');
 }
 
-// =============================================
-// EVENT HANDLERS AND INITIALIZATION
-// =============================================
-
-/**
- * Handle main add button click based on current section
- */
 function handleMainAddButton() {
     const activeSection = document.querySelector('.section.active').id;
     if (activeSection === 'wallets-section') {
         openAddWalletModal();
     } else if (activeSection === 'transactions-section') {
         openAddTransactionModal();
+    } else if (activeSection === 'budgets-section') {
+        openAddBudgetModal();
     } else {
-        // For analytics section, default to adding transaction
         openAddTransactionModal();
     }
 }
 
-/**
- * Save data to localStorage
- */
 function saveData() {
-    localStorage.setItem('wallets', JSON.stringify(wallets));
-    localStorage.setItem('transactions', JSON.stringify(transactions));
+    try {
+        localStorage.setItem('wallets', JSON.stringify(wallets));
+        localStorage.setItem('transactions', JSON.stringify(transactions));
+        localStorage.setItem('budgets', JSON.stringify(budgets));
+        localStorage.setItem('userName', userName);
+    } catch (error) {
+        console.error('Storage error:', error);
+        showNotification('Failed to save data. Storage might be full.', 'error');
+    }
 }
 
-/**
- * Initialize the application
- */
+function exportData() {
+    const data = {
+        wallets,
+        transactions,
+        budgets,
+        userName,
+        exportDate: new Date().toISOString(),
+        version: '1.0'
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fintrack-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification('Data exported successfully!', 'success');
+}
+
+function importData(file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (confirm('This will replace all current data. Continue?')) {
+                wallets = data.wallets || [];
+                transactions = data.transactions || [];
+                budgets = data.budgets || [];
+                userName = data.userName || '';
+                saveData();
+                initializeApp();
+                showNotification('Data imported successfully!', 'success');
+            }
+        } catch (error) {
+            showNotification('Invalid backup file', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function clearAllData() {
+    if (confirm('This will permanently delete all your data. This action cannot be undone. Continue?')) {
+        wallets = [];
+        transactions = [];
+        budgets = [];
+        saveData();
+        initializeApp();
+        showNotification('All data cleared successfully!', 'success');
+    }
+}
+
 function initializeApp() {
-    updateGreeting();
+    if (!userName) {
+        welcomeModal.classList.add('active');
+    } else {
+        welcomeModal.classList.remove('active');
+        updateGreeting();
+    }
+
     updateDate();
     renderWallets();
     renderTransactions();
+    renderBudgets();
     updateAnalytics();
+    checkBudgetAlerts();
 
-    // Set today's date and current time as default in transaction form
     const now = new Date();
     document.getElementById('transaction-date').valueAsDate = now;
     document.getElementById('transaction-time').value = formatTime(now);
 
-    // Event listeners
     addWalletBtn.addEventListener('click', openAddWalletModal);
     addTransactionBtn.addEventListener('click', openAddTransactionModal);
+    addBudgetBtn.addEventListener('click', openAddBudgetModal);
     mainAddBtn.addEventListener('click', handleMainAddButton);
+    settingsBtn.addEventListener('click', openSettingsModal);
 
     walletForm.addEventListener('submit', handleWalletFormSubmit);
     transactionForm.addEventListener('submit', handleTransactionFormSubmit);
+    budgetForm.addEventListener('submit', handleBudgetFormSubmit);
+    welcomeForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        userName = sanitizeInput(document.getElementById('user-name').value);
+        if (userName) {
+            localStorage.setItem('userName', userName);
+            welcomeModal.classList.remove('active');
+            updateGreeting();
+            showNotification(`Welcome to FinTrack, ${userName}!`, 'success');
+        }
+    });
 
     document.getElementById('close-wallet-modal').addEventListener('click', closeWalletModal);
     document.getElementById('close-transaction-modal').addEventListener('click', closeTransactionModal);
+    document.getElementById('close-budget-modal').addEventListener('click', closeBudgetModal);
+    document.getElementById('close-settings-modal').addEventListener('click', closeSettingsModal);
     document.getElementById('close-delete-modal').addEventListener('click', closeDeleteModal);
+
     document.getElementById('cancel-wallet').addEventListener('click', closeWalletModal);
     document.getElementById('cancel-transaction').addEventListener('click', closeTransactionModal);
+    document.getElementById('cancel-budget').addEventListener('click', closeBudgetModal);
     document.getElementById('cancel-delete').addEventListener('click', closeDeleteModal);
+
     document.getElementById('confirm-delete').addEventListener('click', confirmDelete);
 
-    // Category selection
     document.querySelectorAll('.category-item').forEach(item => {
         item.addEventListener('click', function () {
             document.querySelectorAll('.category-item').forEach(i => i.classList.remove('selected'));
@@ -870,22 +1049,17 @@ function initializeApp() {
         });
     });
 
-    // Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', function () {
-            // Remove active class from all nav items
             document.querySelectorAll('.nav-item').forEach(nav => {
                 nav.classList.remove('active');
             });
-            // Add active class to clicked nav item
             this.classList.add('active');
 
-            // Hide all sections
             document.querySelectorAll('.section').forEach(section => {
                 section.classList.remove('active');
             });
 
-            // Show the selected section
             const sectionId = this.getAttribute('data-section');
             if (sectionId) {
                 document.getElementById(sectionId).classList.add('active');
@@ -893,7 +1067,6 @@ function initializeApp() {
         });
     });
 
-    // View all transactions
     document.getElementById('view-all-transactions').addEventListener('click', function () {
         document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
         document.querySelector('[data-section="transactions-section"]').classList.add('active');
@@ -901,8 +1074,33 @@ function initializeApp() {
         document.getElementById('transactions-section').classList.add('active');
     });
 
-    console.log('FinTrack app initialized. Check console for PWA logs.');
-}
+    document.getElementById('search-transactions').addEventListener('input', renderTransactions);
+    document.getElementById('filter-type').addEventListener('change', renderTransactions);
+    document.getElementById('filter-category').addEventListener('change', renderTransactions);
+    document.getElementById('filter-wallet').addEventListener('change', renderTransactions);
 
-// Initialize the app when DOM is loaded
+    document.getElementById('export-data').addEventListener('click', exportData);
+    document.getElementById('import-data').addEventListener('click', function () {
+        document.getElementById('import-file').click();
+    });
+    document.getElementById('import-file').addEventListener('change', function (e) {
+        if (e.target.files[0]) {
+            importData(e.target.files[0]);
+            e.target.value = '';
+        }
+    });
+    document.getElementById('clear-data').addEventListener('click', clearAllData);
+    document.getElementById('save-settings').addEventListener('click', function () {
+        const newUserName = sanitizeInput(document.getElementById('settings-user-name').value);
+        if (newUserName && newUserName !== userName) {
+            userName = newUserName;
+            localStorage.setItem('userName', userName);
+            updateGreeting();
+            showNotification('Settings saved successfully!', 'success');
+        }
+        closeSettingsModal();
+    });
+
+    console.log('FinTrack app initialized successfully.');
+}
 document.addEventListener('DOMContentLoaded', initializeApp);
